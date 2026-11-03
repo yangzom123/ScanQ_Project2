@@ -1,0 +1,38 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Read is public because login looks up a Student/Tutor ID BEFORE sign-in.
+    match /users/{userId} {
+      allow read: if true;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update, delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Tutors own their modules. Students may ONLY change enrolledStudentIds
+    // (that is how "Join" and "Unenroll" work).
+    match /modules/{moduleId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.tutorId == request.auth.uid;
+      allow update: if request.auth != null
+                    && (resource.data.tutorId == request.auth.uid
+                        || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['enrolledStudentIds']));
+      allow delete: if request.auth != null && resource.data.tutorId == request.auth.uid;
+    }
+
+    match /sessions/{sessionId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.tutorId == request.auth.uid;
+      allow update: if request.auth != null;
+      allow delete: if request.auth != null && resource.data.tutorId == request.auth.uid;
+
+      match /attendance/{studentUid} {
+        allow read: if request.auth != null;
+        allow create, update: if request.auth != null && request.auth.uid == studentUid;
+        allow delete: if false;
+      }
+    }
+  }
+}
