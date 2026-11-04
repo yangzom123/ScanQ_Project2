@@ -44,6 +44,7 @@ export function AuthProvider({ children }) {
     registering.current = false;
     await loadProfile(auth.currentUser);
   };
+  const refreshProfile = () => loadProfile(auth.currentUser);
   const logout = async () => {
     warningState.shown = false;
     await signOut(auth);
@@ -51,7 +52,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthCtx.Provider value={{ user, profile, loading, beginRegistration, finishRegistration, logout }}>
+    <AuthCtx.Provider value={{ user, profile, loading, beginRegistration, finishRegistration, refreshProfile, logout }}>
       {children}
     </AuthCtx.Provider>
   );

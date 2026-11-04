@@ -3,6 +3,9 @@ import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firesto
 import { db } from '../firebase';
 import { tsMillis } from '../utils';
 
+// Sessions scheduled for the future must not count against a student yet
+const hasStarted = (data) => !data.startAt || data.startAt.toMillis() <= Date.now();
+
 /**
  * Attendance aggregation (StudentDashboardActivity / StudentModulesActivity):
  * modules the student is enrolled in + attendance % for each
@@ -15,11 +18,12 @@ export async function fetchStudentModules(uid) {
       const data = d.data();
       let pct = 0;
       try {
-        const sessions = await getDocs(query(collection(db, 'sessions'), where('moduleId', '==', d.id)));
-        const total = sessions.size;
+        const all = await getDocs(query(collection(db, 'sessions'), where('moduleId', '==', d.id)));
+        const sessionDocs = all.docs.filter((x) => hasStarted(x.data()));
+        const total = sessionDocs.length;
         if (total > 0) {
           const checks = await Promise.all(
-            sessions.docs.map((sd) => getDoc(doc(db, 'sessions', sd.id, 'attendance', uid)).catch(() => null))
+            sessionDocs.map((sd) => getDoc(doc(db, 'sessions', sd.id, 'attendance', uid)).catch(() => null))
           );
           const attended = checks.filter((c) => c && c.exists()).length;
           pct = Math.floor((attended / total) * 100);
@@ -42,7 +46,7 @@ export async function fetchStudentHistory(uid) {
       const moduleName = m.data().name || '';
       const sessions = await getDocs(query(collection(db, 'sessions'), where('moduleId', '==', m.id)));
       return Promise.all(
-        sessions.docs.map(async (sd) => {
+        sessions.docs.filter((x) => hasStarted(x.data())).map(async (sd) => {
           const s = sd.data();
           const att = await getDoc(doc(db, 'sessions', sd.id, 'attendance', uid));
           return {

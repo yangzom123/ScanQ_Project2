@@ -6,8 +6,10 @@ import { AttendanceCard } from '../../components/Cards';
 import { fetchStudentHistory } from '../../services/data';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function StudentAttendance() {
+  useTheme();
   const { user } = useAuth();
   const toast = useToast();
   const [all, setAll] = useState([]);

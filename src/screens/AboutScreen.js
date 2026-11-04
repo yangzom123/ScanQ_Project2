@@ -3,6 +3,7 @@ import { View, Text, Image, ScrollView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen, Card } from '../components/ui';
 import { colors } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 
 const FEATURES = [
   ['Dynamic QR Code', 'Quick attendance tracking using QR scanning'],
@@ -11,13 +12,14 @@ const FEATURES = [
 ];
 
 export default function AboutScreen({ navigation }) {
+  useTheme();
   return (
     <Screen>
       <ScrollView contentContainerStyle={{ padding: 24 }}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 40, height: 40, marginTop: 8, justifyContent: 'center' }}>
           <Ionicons name="close" size={28} color={colors.accentBlue} />
         </TouchableOpacity>
-        <View style={{ width: 100, height: 100, marginTop: 16, padding: 12, borderRadius: 40, borderWidth: 6, borderColor: colors.white, backgroundColor: colors.bgDark, overflow: 'hidden' }}>
+        <View style={{ width: 100, height: 100, marginTop: 16, padding: 12, borderRadius: 40, borderWidth: 6, borderColor: colors.logoBorder, backgroundColor: '#0f172a', overflow: 'hidden' }}>
           <Image source={require('../../assets/logo.jpeg')} style={{ width: '100%', height: '100%' }} resizeMode="contain" />
         </View>
         <Text style={{ color: colors.accentBlue, fontSize: 24, fontWeight: 'bold', marginTop: 20 }}>ScanQ</Text>

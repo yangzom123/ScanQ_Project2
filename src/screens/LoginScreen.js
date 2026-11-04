@@ -7,8 +7,10 @@ import { Screen, Field, Label, PrimaryButton } from '../components/ui';
 import { useToast } from '../context/ToastContext';
 import { authErrorMessage } from '../utils';
 import { colors } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 
 export default function LoginScreen({ navigation, route }) {
+  useTheme();
   const role = route.params.role; // 'student' | 'tutor'
   const isStudent = role === 'student';
   const toast = useToast();

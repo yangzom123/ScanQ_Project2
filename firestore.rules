@@ -2,36 +2,54 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Read is public because login looks up a Student/Tutor ID BEFORE sign-in.
+    function signedIn() { return request.auth != null; }
+
+    // Attendance may only be written while the session is open
+    // (not closed by the tutor, and - for scheduled sessions - inside start..end, judged by SERVER time).
+    function sessionOpen(sessionId) {
+      let s = get(/databases/$(database)/documents/sessions/$(sessionId)).data;
+      return s.get('closed', false) == false
+          && (!('endAt' in s) || (request.time >= s.startAt && request.time <= s.endAt));
+    }
+
+    // Login looks up an ID BEFORE sign-in, so reads stay public.
+    // Users can only edit their own name and photo (not role, ID or email).
     match /users/{userId} {
       allow read: if true;
-      allow create: if request.auth != null && request.auth.uid == userId;
-      allow update, delete: if request.auth != null && request.auth.uid == userId;
+      allow create: if signedIn() && request.auth.uid == userId;
+      allow update: if signedIn() && request.auth.uid == userId
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fullName', 'profilePhotoUrl']);
+      allow delete: if false;
     }
 
-    // Tutors own their modules. Students may ONLY change enrolledStudentIds
-    // (that is how "Join" and "Unenroll" work).
+    // Tutors own their modules. A student may only ADD or REMOVE THEMSELVES in enrolledStudentIds.
     match /modules/{moduleId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null
-                    && request.resource.data.tutorId == request.auth.uid;
-      allow update: if request.auth != null
-                    && (resource.data.tutorId == request.auth.uid
-                        || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['enrolledStudentIds']));
-      allow delete: if request.auth != null && resource.data.tutorId == request.auth.uid;
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.tutorId == request.auth.uid;
+      allow update: if signedIn() && (
+          resource.data.tutorId == request.auth.uid
+          || ( request.resource.data.diff(resource.data).affectedKeys().hasOnly(['enrolledStudentIds'])
+               && request.resource.data.enrolledStudentIds.toSet().difference(resource.data.enrolledStudentIds.toSet()).hasOnly([request.auth.uid])
+               && resource.data.enrolledStudentIds.toSet().difference(request.resource.data.enrolledStudentIds.toSet()).hasOnly([request.auth.uid]) )
+        );
+      allow delete: if signedIn() && resource.data.tutorId == request.auth.uid;
     }
 
+    // Tutors manage their sessions. A student's check-in may only raise presentCount by exactly 1.
     match /sessions/{sessionId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null
-                    && request.resource.data.tutorId == request.auth.uid;
-      allow update: if request.auth != null;
-      allow delete: if request.auth != null && resource.data.tutorId == request.auth.uid;
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.tutorId == request.auth.uid;
+      allow update: if signedIn() && (
+          resource.data.tutorId == request.auth.uid
+          || ( request.resource.data.diff(resource.data).affectedKeys().hasOnly(['presentCount'])
+               && request.resource.data.presentCount == resource.data.presentCount + 1 )
+        );
+      allow delete: if signedIn() && resource.data.tutorId == request.auth.uid;
 
       match /attendance/{studentUid} {
-        allow read: if request.auth != null;
-        allow create, update: if request.auth != null && request.auth.uid == studentUid;
-        allow delete: if false;
+        allow read: if signedIn();
+        allow create: if signedIn() && request.auth.uid == studentUid && sessionOpen(sessionId);
+        allow update, delete: if false;
       }
     }
   }

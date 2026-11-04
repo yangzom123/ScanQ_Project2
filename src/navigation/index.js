@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { colors } from '../theme';
 
 import WelcomeScreen from '../screens/WelcomeScreen';
@@ -14,6 +15,7 @@ import AboutScreen from '../screens/AboutScreen';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import EditProfileScreen from '../screens/EditProfileScreen';
 import StudentDashboard from '../screens/student/StudentDashboard';
 import StudentModules from '../screens/student/StudentModules';
 import StudentAttendance from '../screens/student/StudentAttendance';
@@ -26,18 +28,19 @@ import GenerateQrScreen from '../screens/tutor/GenerateQrScreen';
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-const theme = { ...DefaultTheme, dark: true, colors: { ...DefaultTheme.colors, background: colors.bgDark, card: colors.bgDark, text: colors.white, border: colors.bgDark, primary: colors.accentBlue } };
+const makeNavTheme = (isDark) => ({ ...DefaultTheme, dark: isDark, colors: { ...DefaultTheme.colors, background: colors.bgDark, card: colors.bgDark, text: colors.textPrimary, border: colors.bgDark, primary: colors.accentBlue } });
 
 /* bg_bottom_nav.xml: 1dp accent-blue line on top of a bg_dark bar.
    nav_item_color.xml: checked = accent_blue, otherwise white */
 function ScanQTabBar({ state, descriptors, navigation }) {
+  useTheme();
   const insets = useSafeAreaInsets();
   return (
     <View style={{ backgroundColor: colors.bgDark, borderTopWidth: 1, borderTopColor: colors.accentBlue, paddingBottom: insets.bottom, flexDirection: 'row' }}>
       {state.routes.map((route, index) => {
         const focused = state.index === index;
         const { options } = descriptors[route.key];
-        const color = focused ? colors.accentBlue : colors.white;
+        const color = focused ? colors.accentBlue : colors.textPrimary;
         return (
           <TouchableOpacity
             key={route.key}
@@ -80,6 +83,7 @@ function TutorTabs() {
 
 export default function RootNavigator() {
   const { profile, loading } = useAuth();
+  const { isDark } = useTheme();
 
   if (loading) {
     return (
@@ -91,17 +95,19 @@ export default function RootNavigator() {
 
   const role = profile?.role;
   return (
-    <NavigationContainer theme={theme}>
+    <NavigationContainer theme={makeNavTheme(isDark)}>
       <Stack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right', contentStyle: { backgroundColor: colors.bgDark } }}>
         {role === 'student' ? (
           <>
             <Stack.Screen name="StudentTabs" component={StudentTabs} />
             <Stack.Screen name="Scan" component={ScanScreen} />
+            <Stack.Screen name="EditProfile" component={EditProfileScreen} />
           </>
         ) : role === 'tutor' ? (
           <>
             <Stack.Screen name="TutorTabs" component={TutorTabs} />
             <Stack.Screen name="GenerateQr" component={GenerateQrScreen} />
+            <Stack.Screen name="EditProfile" component={EditProfileScreen} />
           </>
         ) : (
           <>

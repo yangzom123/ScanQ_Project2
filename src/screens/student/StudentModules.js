@@ -8,8 +8,10 @@ import { StudentModuleCard } from '../../components/Cards';
 import { fetchStudentModules } from '../../services/data';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function StudentModules() {
+  useTheme();
   const { user } = useAuth();
   const toast = useToast();
   const [all, setAll] = useState([]);

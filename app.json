@@ -36,7 +36,9 @@
           "cameraPermission": "ScanQ uses the camera to scan your tutor's attendance QR code."
         }
       ],
-      "expo-status-bar"
+      "expo-status-bar",
+      "expo-sharing",
+      "@react-native-community/datetimepicker"
     ]
   }
 }

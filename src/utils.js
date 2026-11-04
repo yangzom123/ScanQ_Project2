@@ -40,3 +40,18 @@ export const authErrorMessage = (e) => {
 };
 
 export const isValidEmail = (s) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+
+// ---- Project II helpers ----
+// Haversine distance between two GPS points, in metres
+export const distanceMeters = (lat1, lon1, lat2, lon2) => {
+  const R = 6371000, rad = (d) => (d * Math.PI) / 180;
+  const dLat = rad(lat2 - lat1), dLon = rad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+};
+export const startOfDay = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+export const endOfDay = (d) => { const x = new Date(d); x.setHours(23, 59, 59, 999); return x; };
+// merge the date of `d` with the hours/minutes of `t`
+export const combineDateTime = (d, t) => { const x = new Date(d); x.setHours(t.getHours(), t.getMinutes(), 0, 0); return x; };
+export const csvCell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+export const htmlEscape = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

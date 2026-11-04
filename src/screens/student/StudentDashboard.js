@@ -6,7 +6,9 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { collection, query, where, limit, getDocs, doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { Screen, Card, Field, PrimaryButton, Fab } from '../../components/ui';
+import { Screen, Card, Field, PrimaryButton, Fab, Avatar } from '../../components/ui';
+import { hashKey } from '../../services/security';
+import { useTheme } from '../../context/ThemeContext';
 import { StudentModuleCard } from '../../components/Cards';
 import { fetchStudentModules } from '../../services/data';
 import { useAuth, warningState } from '../../context/AuthContext';
@@ -14,6 +16,7 @@ import { useToast } from '../../context/ToastContext';
 import { colors } from '../../theme';
 
 function Ring({ percent }) {
+  useTheme();
   const size = 90, stroke = 6, r = (size - stroke) / 2, c = 2 * Math.PI * r;
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
@@ -25,12 +28,13 @@ function Ring({ percent }) {
           rotation="-90" origin={`${size / 2}, ${size / 2}`}
         />
       </Svg>
-      <Text style={{ color: colors.white, fontSize: 18, fontWeight: 'bold' }}>{percent}%</Text>
+      <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: 'bold' }}>{percent}%</Text>
     </View>
   );
 }
 
 export default function StudentDashboard({ navigation }) {
+  useTheme();
   const { profile, user } = useAuth();
   const toast = useToast();
   const tabH = useBottomTabBarHeight();
@@ -39,6 +43,7 @@ export default function StudentDashboard({ navigation }) {
   const [overall, setOverall] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const [code, setCode] = useState('');
+  const [key, setKey] = useState('');
   const [joining, setJoining] = useState(false);
 
   const load = useCallback(async () => {
@@ -79,9 +84,17 @@ export default function StudentDashboard({ navigation }) {
       const m = snap.docs[0];
       const enrolled = m.data().enrolledStudentIds || [];
       if (enrolled.includes(uid)) { toast('You are already enrolled in this module'); return; }
+      // Enrollment key (modules created before this feature have no key and stay open)
+      const data = m.data();
+      if (data.enrollmentKeyHash) {
+        if (!key.trim()) { toast('Enter the enrollment key from your tutor'); return; }
+        const h = await hashKey(key, data.keySalt || '');
+        if (h !== data.enrollmentKeyHash) { toast('Wrong enrollment key. Please check with your tutor.'); return; }
+      }
       try {
         await updateDoc(doc(db, 'modules', m.id), { enrolledStudentIds: arrayUnion(uid) });
         setCode('');
+        setKey('');
         toast('Successfully enrolled!');
         load();
       } catch (e) {
@@ -101,12 +114,8 @@ export default function StudentDashboard({ navigation }) {
     <Screen>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, paddingHorizontal: 20 }}>
         <Text style={{ color: colors.accentBlue, fontSize: 22, fontWeight: 'bold' }}>ScanQ</Text>
-        <TouchableOpacity
-          onPress={() => navigation.navigate('Profile')}
-          style={{ width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center',
-            backgroundColor: 'rgba(56,189,248,0.07)', borderWidth: 1, borderColor: 'rgba(56,189,248,0.13)' }}
-        >
-          <Ionicons name="person" size={26} color={colors.accentBlue} />
+        <TouchableOpacity onPress={() => navigation.navigate('Profile')} activeOpacity={0.8}>
+          <Avatar uri={profile?.profilePhotoUrl} role="student" size={52} />
         </TouchableOpacity>
       </View>
 
@@ -130,13 +139,9 @@ export default function StudentDashboard({ navigation }) {
 
         <Card style={{ marginTop: 20 }}>
           <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: 'bold' }}>Enroll in Module</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-            <Field
-              style={{ flex: 1, height: 48, fontSize: 13, paddingHorizontal: 14, marginTop: 8 }}
-              placeholder="Enter Module Code" value={code} onChangeText={setCode} autoCapitalize="characters"
-            />
-            <PrimaryButton small title={joining ? 'Joining...' : 'Join'} onPress={join} disabled={joining} style={{ marginLeft: 8, marginTop: 8 }} />
-          </View>
+          <Field style={{ height: 48, fontSize: 13, paddingHorizontal: 14 }} placeholder="Enter Module Code" value={code} onChangeText={setCode} autoCapitalize="characters" />
+          <Field style={{ height: 48, fontSize: 13, paddingHorizontal: 14 }} placeholder="Enter Enrollment Key" value={key} onChangeText={setKey} />
+          <PrimaryButton small title={joining ? 'Joining...' : 'Join'} onPress={join} disabled={joining} style={{ marginTop: 12 }} />
         </Card>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 24 }}>

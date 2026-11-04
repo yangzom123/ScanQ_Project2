@@ -8,8 +8,10 @@ import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import { isValidEmail } from '../utils';
 import { colors } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 
 export default function RegisterScreen({ navigation, route }) {
+  useTheme();
   const role = route.params.role;
   const isStudent = role === 'student';
   const toast = useToast();

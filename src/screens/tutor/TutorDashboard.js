@@ -5,7 +5,9 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { Screen, Card, LightCard, Field, PrimaryButton, Fab } from '../../components/ui';
+import { Screen, Card, LightCard, Field, PrimaryButton, Fab, Avatar } from '../../components/ui';
+import { hashKey, newSalt } from '../../services/security';
+import { useTheme } from '../../context/ThemeContext';
 import { SessionCard } from '../../components/Cards';
 import { fetchTutorSessions } from '../../services/data';
 import { useAuth } from '../../context/AuthContext';
@@ -13,6 +15,7 @@ import { useToast } from '../../context/ToastContext';
 import { colors } from '../../theme';
 
 function Stat({ value, label, first }) {
+  useTheme();
   return (
     <LightCard style={{ flex: 1, marginLeft: first ? 0 : 8, alignItems: 'center', paddingVertical: 14, paddingHorizontal: 4 }}>
       <Text style={{ color: colors.accentBlueDark, fontSize: 20, fontWeight: 'bold' }}>{value}</Text>
@@ -22,6 +25,7 @@ function Stat({ value, label, first }) {
 }
 
 export default function TutorDashboard({ navigation }) {
+  useTheme();
   const { profile, user } = useAuth();
   const toast = useToast();
   const tabH = useBottomTabBarHeight();
@@ -29,6 +33,7 @@ export default function TutorDashboard({ navigation }) {
   const [stats, setStats] = useState({ modules: 0, students: 0, sessions: 0, rate: 0 });
   const [recent, setRecent] = useState([]);
   const [name, setName] = useState('');
+  const [key, setKey] = useState('');
   const [creating, setCreating] = useState(false);
 
   const load = useCallback(async () => {
@@ -54,14 +59,20 @@ export default function TutorDashboard({ navigation }) {
 
   const createModule = async () => {
     const n = name.trim();
+    const k = key.trim();
     if (!n) { toast('Enter a module name'); return; }
+    if (k.length < 4) { toast('Enrollment key must be at least 4 characters'); return; }
     setCreating(true);
     try {
+      const salt = newSalt();
+      const enrollmentKeyHash = await hashKey(k, salt); // only the hash is stored
       await addDoc(collection(db, 'modules'), {
         name: n, code: n.slice(0, 6).toUpperCase(), tutorId: uid, enrolledStudentIds: [],
+        keySalt: salt, enrollmentKeyHash,
       });
       toast('Module created');
       setName('');
+      setKey('');
       load();
     } catch (e) {
       toast(`Failed: ${e.message}`, true);
@@ -74,12 +85,8 @@ export default function TutorDashboard({ navigation }) {
     <Screen>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, paddingHorizontal: 20 }}>
         <Text style={{ color: colors.accentBlue, fontSize: 22, fontWeight: 'bold' }}>ScanQ</Text>
-        <TouchableOpacity
-          onPress={() => navigation.navigate('Profile')}
-          style={{ width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center',
-            backgroundColor: 'rgba(56,189,248,0.07)', borderWidth: 1, borderColor: 'rgba(56,189,248,0.13)' }}
-        >
-          <Ionicons name="school" size={26} color={colors.accentBlue} />
+        <TouchableOpacity onPress={() => navigation.navigate('Profile')} activeOpacity={0.8}>
+          <Avatar uri={profile?.profilePhotoUrl} role="tutor" size={52} />
         </TouchableOpacity>
       </View>
 
@@ -97,13 +104,9 @@ export default function TutorDashboard({ navigation }) {
 
         <Card style={{ marginTop: 20 }}>
           <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: 'bold' }}>Create Module</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-            <Field
-              style={{ flex: 1, height: 48, fontSize: 13, paddingHorizontal: 14, marginTop: 8 }}
-              placeholder="Enter Module Name" value={name} onChangeText={setName} autoCapitalize="words"
-            />
-            <PrimaryButton small title="Create Module" onPress={createModule} disabled={creating} style={{ marginLeft: 8, marginTop: 8 }} />
-          </View>
+          <Field style={{ height: 48, fontSize: 13, paddingHorizontal: 14 }} placeholder="Enter Module Name" value={name} onChangeText={setName} autoCapitalize="words" />
+          <Field style={{ height: 48, fontSize: 13, paddingHorizontal: 14 }} placeholder="Set Enrollment Key (students need it to join)" value={key} onChangeText={setKey} />
+          <PrimaryButton small title={creating ? 'Creating...' : 'Create Module'} onPress={createModule} disabled={creating} style={{ marginTop: 12 }} />
         </Card>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 24 }}>
