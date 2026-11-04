@@ -33,20 +33,5 @@ src/screens/student/        Dashboard, Modules, Attendance, Scan
 src/screens/tutor/          Dashboard, Modules, Records, GenerateQr
 ```
 
-##  Android activity -> React Native screen
-| Android | React Native |
-|---|---|
-| WelcomeActivity / AboutUsActivity | WelcomeScreen / AboutScreen |
-| StudentLoginActivity, TutorLoginActivity | LoginScreen (role param) |
-| StudentRegisterActivity, TutorRegisterActivity | RegisterScreen (role param) |
-| StudentDashboardActivity | student/StudentDashboard |
-| StudentModulesActivity | student/StudentModules |
-| StudentAttendanceActivity | student/StudentAttendance |
-| ScanQrActivity | student/ScanScreen |
-| TutorDashboardActivity | tutor/TutorDashboard |
-| TutorModulesActivity | tutor/TutorModules |
-| TutorRecordsActivity | tutor/TutorRecords |
-| GenerateQrActivity | tutor/GenerateQrScreen |
-| ProfileActivity | ProfileScreen |
 
 
