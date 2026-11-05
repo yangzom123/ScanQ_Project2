@@ -105,7 +105,7 @@ export default function TutorDashboard({ navigation }) {
         <Card style={{ marginTop: 20 }}>
           <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: 'bold' }}>Create Module</Text>
           <Field style={{ height: 48, fontSize: 13, paddingHorizontal: 14 }} placeholder="Enter Module Name" value={name} onChangeText={setName} autoCapitalize="words" />
-          <Field style={{ height: 48, fontSize: 13, paddingHorizontal: 14 }} placeholder="Set Enrollment Key (students need it to join)" value={key} onChangeText={setKey} />
+          <Field style={{ height: 48, fontSize: 13, paddingHorizontal: 14 }} placeholder="Set Enrollment Key" value={key} onChangeText={setKey} />
           <PrimaryButton small title={creating ? 'Creating...' : 'Create Module'} onPress={createModule} disabled={creating} style={{ marginTop: 12 }} />
         </Card>
 
