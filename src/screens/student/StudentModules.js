@@ -1,13 +1,14 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { View, FlatList, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { doc, updateDoc, arrayRemove } from 'firebase/firestore';
+import { doc, runTransaction, arrayRemove } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { Screen, TopBar, SearchInput, Empty, Loading } from '../../components/ui';
 import { StudentModuleCard } from '../../components/Cards';
 import { fetchStudentModules } from '../../services/data';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { runOnlineWrite } from '../../services/network';
 import { useTheme } from '../../context/ThemeContext';
 
 export default function StudentModules() {
@@ -41,7 +42,12 @@ export default function StudentModules() {
         onPress: async () => {
           setLoading(true);
           try {
-            await updateDoc(doc(db, 'modules', module.moduleId), { enrolledStudentIds: arrayRemove(user.uid) });
+            await runOnlineWrite(() => runTransaction(db, async (txn) => {
+              const ref = doc(db, 'modules', module.moduleId);
+              const snap = await txn.get(ref);
+              if (!snap.exists()) throw new Error('MODULE_NOT_FOUND');
+              txn.update(ref, { enrolledStudentIds: arrayRemove(user.uid) });
+            }));
             toast('Successfully unenrolled');
             load();
           } catch (e) {

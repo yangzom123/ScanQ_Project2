@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useRef, useState, useCallback } from 'react';
 import { Animated, Text, StyleSheet } from 'react-native';
 import { colors } from '../theme';
+import { OFFLINE_MESSAGE, isOfflineError } from '../services/network';
 
 const ToastCtx = createContext(() => {});
 export const useToast = () => useContext(ToastCtx);
@@ -12,7 +13,10 @@ export function ToastProvider({ children }) {
   const timer = useRef(null);
 
   const show = useCallback((text, long = false) => {
-    setMsg(text);
+    const message = String(text || '');
+    setMsg(isOfflineError({ message }) ? OFFLINE_MESSAGE
+      : message.includes('WRITE_TIMEOUT') ? 'The request is taking too long. Check your connection and try again.'
+      : message);
     clearTimeout(timer.current);
     Animated.timing(opacity, { toValue: 1, duration: 150, useNativeDriver: true }).start();
     timer.current = setTimeout(() => {

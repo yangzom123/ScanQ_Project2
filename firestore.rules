@@ -12,6 +12,12 @@ service cloud.firestore {
           && (!('endAt' in s) || (request.time >= s.startAt && request.time <= s.endAt));
     }
 
+    function enrolledInSession(sessionId) {
+      let s = get(/databases/$(database)/documents/sessions/$(sessionId)).data;
+      let m = get(/databases/$(database)/documents/modules/$(s.moduleId)).data;
+      return request.auth.uid in m.get('enrolledStudentIds', []);
+    }
+
     // Login looks up an ID BEFORE sign-in, so reads stay public.
     // Users can only edit their own name and photo (not role, ID or email).
     match /users/{userId} {
@@ -42,13 +48,18 @@ service cloud.firestore {
       allow update: if signedIn() && (
           resource.data.tutorId == request.auth.uid
           || ( request.resource.data.diff(resource.data).affectedKeys().hasOnly(['presentCount'])
-               && request.resource.data.presentCount == resource.data.presentCount + 1 )
+               && request.resource.data.presentCount == resource.data.presentCount + 1
+               && enrolledInSession(sessionId)
+               && sessionOpen(sessionId)
+               && !exists(/databases/$(database)/documents/sessions/$(sessionId)/attendance/$(request.auth.uid))
+               && existsAfter(/databases/$(database)/documents/sessions/$(sessionId)/attendance/$(request.auth.uid)) )
         );
       allow delete: if signedIn() && resource.data.tutorId == request.auth.uid;
 
       match /attendance/{studentUid} {
         allow read: if signedIn();
-        allow create: if signedIn() && request.auth.uid == studentUid && sessionOpen(sessionId);
+        allow create: if signedIn() && request.auth.uid == studentUid
+                      && sessionOpen(sessionId) && enrolledInSession(sessionId);
         allow update, delete: if false;
       }
     }

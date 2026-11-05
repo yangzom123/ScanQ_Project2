@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
 import * as Location from 'expo-location';
-import { collection, query, where, getDocs, addDoc, updateDoc, doc, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, runTransaction, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { Screen, Label, Dropdown, PickerField, PrimaryButton, Loading } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
@@ -11,6 +11,7 @@ import { useToast } from '../../context/ToastContext';
 import { useTheme } from '../../context/ThemeContext';
 import { formatDate, formatTime, randomToken, combineDateTime } from '../../utils';
 import { colors } from '../../theme';
+import { runOnlineWrite } from '../../services/network';
 
 const REFRESH_INTERVAL = 10000; // QR token changes every 10 s
 const RADII = [50, 100, 200];
@@ -28,7 +29,7 @@ export default function GenerateQrScreen({ navigation }) {
   const [date, setDate] = useState(new Date());
   const [start, setStart] = useState(new Date());
   const [end, setEnd] = useState(new Date(Date.now() + 60 * 60 * 1000));
-  const [radiusIdx, setRadiusIdx] = useState(1);
+  const [radiusIdx, setRadiusIdx] = useState(0);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [session, setSession] = useState(null); // { id, token, label, info }
@@ -78,14 +79,15 @@ export default function GenerateQrScreen({ navigation }) {
 
     const token = randomToken();
     try {
-      const ref = await addDoc(collection(db, 'sessions'), {
+      const ref = doc(collection(db, 'sessions'));
+      await runOnlineWrite(() => runTransaction(db, async (txn) => txn.set(ref, {
         moduleId: module.id, moduleName: module.name, tutorId: user.uid,
         date: formatDate(startAt), startTime: formatTime(startAt), endTime: formatTime(endAt),
         startAt: Timestamp.fromDate(startAt), endAt: Timestamp.fromDate(endAt), closed: false,
         latitude: coords.latitude, longitude: coords.longitude, radius: RADII[radiusIdx],
         totalStudents: module.enrolledCount, presentCount: 0,
         currentToken: token, createdAt: serverTimestamp(),
-      });
+      })));
       sessionIdRef.current = ref.id;
       endAtRef.current = endAt.getTime();
       setSession({
@@ -108,14 +110,22 @@ export default function GenerateQrScreen({ navigation }) {
       if (!id) return;
       if (Date.now() >= endAtRef.current) {
         clearInterval(timer.current);
-        try { await updateDoc(doc(db, 'sessions', id), { closed: true }); } catch (e) { /* ignore */ }
+        try { await runOnlineWrite(() => runTransaction(db, async (txn) => {
+          const ref = doc(db, 'sessions', id);
+          const snap = await txn.get(ref);
+          if (snap.exists()) txn.update(ref, { closed: true });
+        })); } catch (e) { /* ignore */ }
         setEnded(true);
         toast('Session time is over. Attendance is now closed.', true);
         return;
       }
       const newToken = randomToken();
       try {
-        await updateDoc(doc(db, 'sessions', id), { currentToken: newToken });
+        await runOnlineWrite(() => runTransaction(db, async (txn) => {
+          const ref = doc(db, 'sessions', id);
+          const snap = await txn.get(ref);
+          if (snap.exists() && !snap.data().closed) txn.update(ref, { currentToken: newToken });
+        }));
         setSession((prev) => ({ ...prev, token: newToken }));
       } catch (e) { /* the next tick retries */ }
     }, REFRESH_INTERVAL);
@@ -128,7 +138,11 @@ export default function GenerateQrScreen({ navigation }) {
     if (id && !ended) {
       const stopTime = formatTime(new Date());
       try {
-        await updateDoc(doc(db, 'sessions', id), { closed: true, endTime: stopTime, endAt: Timestamp.now() });
+        await runOnlineWrite(() => runTransaction(db, async (txn) => {
+          const ref = doc(db, 'sessions', id);
+          const snap = await txn.get(ref);
+          if (snap.exists()) txn.update(ref, { closed: true, endTime: stopTime, endAt: Timestamp.now() });
+        }));
         toast(`Session stopped at ${stopTime}`);
       } catch (e) { toast(`Failed to stop session: ${e.message}`); }
     }

@@ -3,13 +3,14 @@ import { View, Text, ScrollView, TouchableOpacity, KeyboardAvoidingView, Platfor
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'firebase/auth';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, runTransaction } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Screen, Field, Label, Avatar, PrimaryButton } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext';
 import { colors } from '../theme';
+import { runOnlineWrite } from '../services/network';
 
 export default function EditProfileScreen({ navigation }) {
   useTheme();
@@ -54,7 +55,12 @@ export default function EditProfileScreen({ navigation }) {
         await reauthenticateWithCredential(user, cred); // Firebase requires a recent login to change a password
         await updatePassword(user, newPw);
       }
-      await updateDoc(doc(db, 'users', user.uid), { fullName: name, profilePhotoUrl: photo });
+      await runOnlineWrite(() => runTransaction(db, async (txn) => {
+        const ref = doc(db, 'users', user.uid);
+        const snap = await txn.get(ref);
+        if (!snap.exists()) throw new Error('PROFILE_NOT_FOUND');
+        txn.update(ref, { fullName: name, profilePhotoUrl: photo });
+      }));
       await refreshProfile();
       toast('Profile updated');
       navigation.goBack();

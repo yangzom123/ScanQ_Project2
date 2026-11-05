@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Svg, { Circle } from 'react-native-svg';
 import { useFocusEffect } from '@react-navigation/native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import { collection, query, where, limit, getDocs, doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { collection, query, where, limit, getDocs, doc, runTransaction, arrayUnion } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { Screen, Card, Field, PrimaryButton, Fab, Avatar } from '../../components/ui';
 import { hashKey } from '../../services/security';
@@ -13,6 +13,7 @@ import { StudentModuleCard } from '../../components/Cards';
 import { fetchStudentModules } from '../../services/data';
 import { useAuth, warningState } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { runOnlineWrite } from '../../services/network';
 import { colors } from '../../theme';
 
 function Ring({ percent }) {
@@ -92,13 +93,20 @@ export default function StudentDashboard({ navigation }) {
         if (h !== data.enrollmentKeyHash) { toast('Wrong enrollment key. Please check with your tutor.'); return; }
       }
       try {
-        await updateDoc(doc(db, 'modules', m.id), { enrolledStudentIds: arrayUnion(uid) });
+        await runOnlineWrite(() => runTransaction(db, async (txn) => {
+          const fresh = await txn.get(doc(db, 'modules', m.id));
+          if (!fresh.exists()) throw new Error('MODULE_NOT_FOUND');
+          if ((fresh.data().enrolledStudentIds || []).includes(uid)) throw new Error('ALREADY_ENROLLED');
+          txn.update(doc(db, 'modules', m.id), { enrolledStudentIds: arrayUnion(uid) });
+        }));
         setCode('');
         setKey('');
         toast('Successfully enrolled!');
         load();
       } catch (e) {
-        toast(`Enrollment failed: ${e.message}`);
+        toast(e.message === 'ALREADY_ENROLLED'
+          ? 'You are already enrolled in this module'
+          : `Enrollment failed: ${e.message}`);
       }
     } catch (e) {
       toast(`Error checking code: ${e.message}`);

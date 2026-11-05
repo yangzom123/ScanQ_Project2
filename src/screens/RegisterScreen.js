@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { collection, query, where, limit, getDocs, doc, setDoc } from 'firebase/firestore';
+import { collection, query, where, limit, getDocs, doc, runTransaction } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { Screen, Field, PrimaryButton } from '../components/ui';
 import { useToast } from '../context/ToastContext';
@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { isValidEmail } from '../utils';
 import { colors } from '../theme';
 import { useTheme } from '../context/ThemeContext';
+import { runOnlineWrite } from '../services/network';
 
 export default function RegisterScreen({ navigation, route }) {
   useTheme();
@@ -56,9 +57,10 @@ export default function RegisterScreen({ navigation, route }) {
         return;
       }
       try {
-        await setDoc(doc(db, 'users', cred.user.uid), {
+        const profileRef = doc(db, 'users', cred.user.uid);
+        await runOnlineWrite(() => runTransaction(db, async (txn) => txn.set(profileRef, {
           uid: cred.user.uid, fullName, idNumber, email, role, profilePhotoUrl: '', createdDate: Date.now(),
-        });
+        })));
         await finishRegistration(); // -> navigator switches to the dashboard
       } catch (e) {
         await finishRegistration();

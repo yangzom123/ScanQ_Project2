@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, runTransaction } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { Screen, Card, LightCard, Field, PrimaryButton, Fab, Avatar } from '../../components/ui';
 import { hashKey, newSalt } from '../../services/security';
@@ -12,6 +12,7 @@ import { SessionCard } from '../../components/Cards';
 import { fetchTutorSessions } from '../../services/data';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { runOnlineWrite } from '../../services/network';
 import { colors } from '../../theme';
 
 function Stat({ value, label, first }) {
@@ -66,10 +67,11 @@ export default function TutorDashboard({ navigation }) {
     try {
       const salt = newSalt();
       const enrollmentKeyHash = await hashKey(k, salt); // only the hash is stored
-      await addDoc(collection(db, 'modules'), {
+      const moduleRef = doc(collection(db, 'modules'));
+      await runOnlineWrite(() => runTransaction(db, async (txn) => txn.set(moduleRef, {
         name: n, code: n.slice(0, 6).toUpperCase(), tutorId: uid, enrolledStudentIds: [],
         keySalt: salt, enrollmentKeyHash,
-      });
+      })));
       toast('Module created');
       setName('');
       setKey('');

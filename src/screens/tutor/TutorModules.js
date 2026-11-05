@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { FlatList, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { collection, query, where, getDocs, doc, updateDoc, writeBatch } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, runTransaction } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { Screen, TopBar, InputDialog, Empty } from '../../components/ui';
 import { TutorModuleCard } from '../../components/Cards';
@@ -9,6 +9,7 @@ import { hashKey, newSalt } from '../../services/security';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useTheme } from '../../context/ThemeContext';
+import { runOnlineWrite } from '../../services/network';
 
 export default function TutorModules() {
   useTheme();
@@ -34,7 +35,12 @@ export default function TutorModules() {
   const updateName = async (newName) => {
     const n = newName.trim(); const m = editing; setEditing(null);
     if (!n) return;
-    try { await updateDoc(doc(db, 'modules', m.moduleId), { name: n }); toast('Module updated'); load(); }
+    try { await runOnlineWrite(() => runTransaction(db, async (txn) => {
+      const ref = doc(db, 'modules', m.moduleId);
+      const snap = await txn.get(ref);
+      if (!snap.exists()) throw new Error('MODULE_NOT_FOUND');
+      txn.update(ref, { name: n });
+    })); toast('Module updated'); load(); }
     catch (e) { toast(`Update failed: ${e.message}`); }
   };
 
@@ -45,7 +51,13 @@ export default function TutorModules() {
     setKeyFor(null);
     try {
       const salt = newSalt();
-      await updateDoc(doc(db, 'modules', m.moduleId), { keySalt: salt, enrollmentKeyHash: await hashKey(k, salt) });
+      const enrollmentKeyHash = await hashKey(k, salt);
+      await runOnlineWrite(() => runTransaction(db, async (txn) => {
+        const ref = doc(db, 'modules', m.moduleId);
+        const snap = await txn.get(ref);
+        if (!snap.exists()) throw new Error('MODULE_NOT_FOUND');
+        txn.update(ref, { keySalt: salt, enrollmentKeyHash });
+      }));
       toast('Enrollment key saved');
       load();
     } catch (e) { toast(`Failed to save key: ${e.message}`); }
@@ -60,10 +72,14 @@ export default function TutorModules() {
   const deleteModule = async (moduleId) => {
     try {
       const sessions = await getDocs(query(collection(db, 'sessions'), where('moduleId', '==', moduleId)));
-      const batch = writeBatch(db);
-      sessions.docs.forEach((d) => batch.delete(d.ref));
-      batch.delete(doc(db, 'modules', moduleId));
-      await batch.commit();
+      await runOnlineWrite(() => runTransaction(db, async (txn) => {
+        const moduleRef = doc(db, 'modules', moduleId);
+        const moduleSnap = await txn.get(moduleRef);
+        if (!moduleSnap.exists()) throw new Error('MODULE_NOT_FOUND');
+        const sessionSnaps = await Promise.all(sessions.docs.map((d) => txn.get(d.ref)));
+        sessionSnaps.forEach((snap) => { if (snap.exists()) txn.delete(snap.ref); });
+        txn.delete(moduleRef);
+      }));
       toast('Module and its sessions deleted');
       load();
     } catch (e) { toast(`Delete failed: ${e.message}`); }

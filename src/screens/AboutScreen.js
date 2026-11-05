@@ -19,10 +19,12 @@ export default function AboutScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 40, height: 40, marginTop: 8, justifyContent: 'center' }}>
           <Ionicons name="close" size={28} color={colors.accentBlue} />
         </TouchableOpacity>
-        <View style={{ width: 100, height: 100, marginTop: 16, padding: 12, borderRadius: 40, borderWidth: 6, borderColor: colors.logoBorder, backgroundColor: '#0f172a', overflow: 'hidden' }}>
-          <Image source={require('../../assets/logo.jpeg')} style={{ width: '100%', height: '100%' }} resizeMode="contain" />
+        <View style={{ alignItems: 'center', marginTop: 16 }}>
+          <View style={{ width: 100, height: 100, padding: 12, borderRadius: 40, borderWidth: 6, borderColor: colors.logoBorder, backgroundColor: '#0f172a', overflow: 'hidden' }}>
+            <Image source={require('../../assets/logo.jpeg')} style={{ width: '100%', height: '100%' }} resizeMode="contain" />
+          </View>
+          <Text style={{ color: colors.accentBlue, fontSize: 24, fontWeight: 'bold', marginTop: 20 }}>ScanQ</Text>
         </View>
-        <Text style={{ color: colors.accentBlue, fontSize: 24, fontWeight: 'bold', marginTop: 20 }}>ScanQ</Text>
         <Text style={{ color: colors.textPrimary, fontSize: 15, marginTop: 12, textAlign: 'center' }}>
           A smart and efficient way to manage student attendance using QR technology and digital tracking
         </Text>

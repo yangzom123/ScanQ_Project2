@@ -11,6 +11,7 @@ import { useToast } from '../../context/ToastContext';
 import { useTheme } from '../../context/ThemeContext';
 import { distanceMeters } from '../../utils';
 import { colors } from '../../theme';
+import { runOnlineWrite } from '../../services/network';
 
 // Returns a message when the session can't take attendance right now, otherwise null
 function windowError(d) {
@@ -62,24 +63,30 @@ export default function ScanScreen({ navigation }) {
       if (first.data().latitude != null && first.data().longitude != null) await checkLocation(first.data());
 
       // 2) atomic check-in (re-validates the window and token, rejects duplicates)
-      const moduleName = await runTransaction(db, async (txn) => {
+      const moduleName = await runOnlineWrite(() => runTransaction(db, async (txn) => {
         const snap = await txn.get(sessionRef);
         if (!snap.exists()) throw new Error("This QR code doesn't match any active session");
         const data = snap.data();
         const err = windowError(data);
         if (err) throw new Error(err);
         if (data.currentToken !== scannedToken) throw new Error('QR_EXPIRED');
+        if (!data.moduleId) throw new Error('MODULE_NOT_FOUND');
+        const moduleSnap = await txn.get(doc(db, 'modules', data.moduleId));
+        if (!moduleSnap.exists()) throw new Error('MODULE_NOT_FOUND');
+        if (!(moduleSnap.data().enrolledStudentIds || []).includes(uid)) throw new Error('NOT_ENROLLED');
         const att = await txn.get(attendanceRef);
         if (att.exists()) throw new Error('ALREADY_MARKED');
         txn.set(attendanceRef, { studentId: uid, timestamp: serverTimestamp(), status: 'present' });
         txn.update(sessionRef, { presentCount: increment(1) });
         return data.moduleName || 'the session';
-      });
+      }));
       toast(`Attendance marked for ${moduleName}`, true);
     } catch (e) {
       const msg = {
         ALREADY_MARKED: "You've already marked attendance for this session",
         QR_EXPIRED: "This QR code has expired. Please scan the current one on the tutor's screen.",
+        NOT_ENROLLED: 'You are not enrolled in this module, so attendance was not marked.',
+        MODULE_NOT_FOUND: 'This session is not linked to a valid module.',
       }[e.message]
         || (e.code === 'permission-denied' ? 'Attendance is not open for this session right now.' : null)
         || e.message || "Couldn't mark attendance";
