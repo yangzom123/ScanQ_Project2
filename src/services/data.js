@@ -51,7 +51,7 @@ export async function fetchStudentHistory(uid) {
           const att = await getDoc(doc(db, 'sessions', sd.id, 'attendance', uid));
           return {
             sessionId: sd.id, moduleName,
-            date: s.date || '', startTime: s.startTime || '', endTime: s.endTime || '',
+            date: s.date || '', startTime: s.startTime || '', endTime: s.scheduledEndTime || s.endTime || '',
             isPresent: att.exists(), createdAt: tsMillis(s.createdAt),
           };
         })
@@ -69,7 +69,7 @@ export async function fetchTutorSessions(uid) {
       const s = d.data();
       return {
         sessionId: d.id, moduleId: s.moduleId || '', moduleName: s.moduleName || '',
-        date: s.date || '', startTime: s.startTime || '', endTime: s.endTime || '',
+        date: s.date || '', startTime: s.startTime || '', endTime: s.scheduledEndTime || s.endTime || '',
         totalStudents: s.totalStudents || 0, presentCount: s.presentCount || 0,
         createdAt: tsMillis(s.createdAt),
       };

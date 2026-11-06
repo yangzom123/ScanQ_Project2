@@ -83,7 +83,9 @@ export default function GenerateQrScreen({ navigation }) {
       await runOnlineWrite(() => runTransaction(db, async (txn) => txn.set(ref, {
         moduleId: module.id, moduleName: module.name, tutorId: user.uid,
         date: formatDate(startAt), startTime: formatTime(startAt), endTime: formatTime(endAt),
-        startAt: Timestamp.fromDate(startAt), endAt: Timestamp.fromDate(endAt), closed: false,
+        scheduledEndTime: formatTime(endAt),
+        startAt: Timestamp.fromDate(startAt), endAt: Timestamp.fromDate(endAt),
+        scheduledEndAt: Timestamp.fromDate(endAt), closed: false,
         latitude: coords.latitude, longitude: coords.longitude, radius: RADII[radiusIdx],
         totalStudents: module.enrolledCount, presentCount: 0,
         currentToken: token, createdAt: serverTimestamp(),
@@ -136,14 +138,14 @@ export default function GenerateQrScreen({ navigation }) {
     clearInterval(timer.current);
     const id = sessionIdRef.current;
     if (id && !ended) {
-      const stopTime = formatTime(new Date());
       try {
         await runOnlineWrite(() => runTransaction(db, async (txn) => {
           const ref = doc(db, 'sessions', id);
           const snap = await txn.get(ref);
-          if (snap.exists()) txn.update(ref, { closed: true, endTime: stopTime, endAt: Timestamp.now() });
+          // Close check-in without changing the originally scheduled end time.
+          if (snap.exists()) txn.update(ref, { closed: true });
         }));
-        toast(`Session stopped at ${stopTime}`);
+        toast(`Attendance stopped. Scheduled end time: ${formatTime(new Date(endAtRef.current))}`);
       } catch (e) { toast(`Failed to stop session: ${e.message}`); }
     }
     navigation.goBack();

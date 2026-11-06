@@ -16,10 +16,11 @@ import { runOnlineWrite } from '../../services/network';
 // Returns a message when the session can't take attendance right now, otherwise null
 function windowError(d) {
   const now = Date.now();
+  const scheduledEndAt = d.scheduledEndAt || d.endAt;
   if (d.closed) return 'This session has been closed by the tutor';
   if (d.startAt && now < d.startAt.toMillis()) return `This session hasn't started yet. It starts at ${d.startTime}.`;
-  if (d.endAt && now > d.endAt.toMillis()) return `This session ended at ${d.endTime}.`;
-  if (!d.endAt && d.endTime) return 'This session has been closed by the tutor'; // sessions from Project I
+  if (scheduledEndAt && now > scheduledEndAt.toMillis()) return `This session ended at ${d.scheduledEndTime || d.endTime}.`;
+  if (!scheduledEndAt && d.endTime) return 'This session has been closed by the tutor'; // sessions from Project I
   return null;
 }
 
