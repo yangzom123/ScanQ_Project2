@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Linking } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,7 +27,12 @@ function windowError(d) {
 // Geo-fence: student must be within `radius` metres of the classroom location saved by the tutor
 async function checkLocation(d) {
   const perm = await Location.requestForegroundPermissionsAsync();
-  if (perm.status !== 'granted') throw new Error('Location permission is required to mark attendance for this session');
+  if (perm.status !== 'granted') {
+    const error = new Error('LOCATION_PERMISSION_DENIED');
+    error.canAskAgain = perm.canAskAgain;
+    throw error;
+  }
+  if (!(await Location.hasServicesEnabledAsync())) throw new Error('LOCATION_SERVICES_DISABLED');
   const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
   if (pos.mocked) throw new Error('Mock locations are not allowed');
   const dist = distanceMeters(pos.coords.latitude, pos.coords.longitude, d.latitude, d.longitude);
@@ -91,7 +96,16 @@ export default function ScanScreen({ navigation }) {
       }[e.message]
         || (e.code === 'permission-denied' ? 'Attendance is not open for this session right now.' : null)
         || e.message || "Couldn't mark attendance";
-      toast(msg, true);
+      if (e.message === 'LOCATION_PERMISSION_DENIED') {
+        if (!e.canAskAgain) {
+          Alert.alert('Location access is off', 'Allow location access in Settings, then scan the QR code again.', [
+            { text: 'OK', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => Linking.openSettings() },
+          ]);
+        } else toast('Location access is needed to check in for this session. Scan again and allow location access.', true);
+      } else if (e.message === 'LOCATION_SERVICES_DISABLED') {
+        Alert.alert('Turn on location services', 'Enable location services, then scan the QR code again.');
+      } else toast(msg, true);
     }
     navigation.goBack();
   };
@@ -109,7 +123,10 @@ export default function ScanScreen({ navigation }) {
         <Text style={{ color: colors.textPrimary, fontSize: 16, textAlign: 'center', marginBottom: 20 }}>
           Camera permission is needed to scan the attendance QR code.
         </Text>
-        <PrimaryButton title="Allow Camera" onPress={requestPermission} />
+        <PrimaryButton
+          title={permission.canAskAgain ? 'Allow Camera' : 'Open Settings'}
+          onPress={permission.canAskAgain ? requestPermission : () => Linking.openSettings()}
+        />
         <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 20 }}>
           <Text style={{ color: colors.accentBlue, textAlign: 'center', fontSize: 15 }}>Cancel</Text>
         </TouchableOpacity>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, KeyboardAvoidingView, Platform, Alert, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'firebase/auth';
@@ -26,6 +26,19 @@ export default function EditProfileScreen({ navigation }) {
   // The photo is stored (small, compressed) inside the user document, so no Firebase Storage plan is needed
   const pickPhoto = async () => {
     try {
+      const current = await ImagePicker.getMediaLibraryPermissionsAsync();
+      const permission = current.granted ? current : await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        if (!permission.canAskAgain) {
+          Alert.alert('Photo access is off', 'Allow photo access in Settings to choose a profile picture.', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => Linking.openSettings() },
+          ]);
+        } else {
+          toast('Photo access is needed to choose a profile picture.', true);
+        }
+        return;
+      }
       const res = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.15, base64: true,
       });
@@ -35,7 +48,7 @@ export default function EditProfileScreen({ navigation }) {
       if (b64.length > 600000) { toast('Photo is too large. Please pick a smaller image.', true); return; }
       setPhoto(`data:image/jpeg;base64,${b64}`);
     } catch (e) {
-      toast(`Couldn't open photos: ${e.message}`);
+      toast(`Couldn't choose a photo: ${e.message}`, true);
     }
   };
 

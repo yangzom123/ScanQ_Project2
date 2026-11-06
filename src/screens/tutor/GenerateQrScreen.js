@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
 import * as Location from 'expo-location';
@@ -69,7 +69,21 @@ export default function GenerateQrScreen({ navigation }) {
     let coords;
     try {
       const perm = await Location.requestForegroundPermissionsAsync();
-      if (perm.status !== 'granted') throw new Error('Location permission is required to set the classroom location');
+      if (perm.status !== 'granted') {
+        if (!perm.canAskAgain) {
+          Alert.alert('Location access is off', 'Allow location access in Settings to save the classroom location.', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => Linking.openSettings() },
+          ]);
+        } else toast('Location access is needed to save the classroom location.', true);
+        setGenerating(false);
+        return;
+      }
+      if (!(await Location.hasServicesEnabledAsync())) {
+        toast('Turn on location services, then try creating the session again.', true);
+        setGenerating(false);
+        return;
+      }
       coords = (await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })).coords;
     } catch (e) {
       toast(`Couldn't get your location: ${e.message}`, true);
