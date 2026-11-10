@@ -89,7 +89,7 @@ async function share(uri, mimeType, uti) {
 }
 
 export async function exportCsv(report, period) {
-  const safe = report.module.code.replace(/[^A-Za-z0-9]/g, '') || 'module';
+  const safe = (report.module.code || '').replace(/[^A-Za-z0-9]/g, '') || 'module';
   const file = new File(Paths.cache, `ScanQ_${safe}_attendance.csv`);
   if (file.exists) file.delete();
   file.create();
@@ -98,6 +98,22 @@ export async function exportCsv(report, period) {
 }
 
 export async function exportPdf(report, period) {
-  const { uri } = await Print.printToFileAsync({ html: buildHtml(report, period) });
-  await share(uri, 'application/pdf', 'com.adobe.pdf');
+  const safe = (report.module.code || '').replace(/[^A-Za-z0-9]/g, '') || 'module';
+  let printed;
+  try {
+    printed = await Print.printToFileAsync({ html: buildHtml(report, period) });
+  } catch (error) {
+    throw new Error(`Could not create the PDF: ${error.message || 'PDF renderer unavailable'}`);
+  }
+
+  if (!printed?.uri) throw new Error('Could not create the PDF file. Please try again.');
+
+  const source = new File(printed.uri);
+  if (!source.exists || source.size === 0) throw new Error('The PDF was created without any content. Please try again.');
+
+  // Give the generated file a stable, recognizable name before opening the share sheet.
+  const output = new File(Paths.cache, `ScanQ_${safe}_attendance.pdf`);
+  if (output.exists) output.delete();
+  await source.copy(output);
+  await share(output.uri, 'application/pdf', 'com.adobe.pdf');
 }

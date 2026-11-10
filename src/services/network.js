@@ -2,6 +2,16 @@ import NetInfo from '@react-native-community/netinfo';
 
 export const OFFLINE_MESSAGE = "You're offline. Check your internet connection and try again.";
 
+export function withTimeout(promise, timeoutMs = 12000, message = 'REQUEST_TIMEOUT') {
+  let timer;
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
+
 export function isOfflineError(error) {
   const code = String(error?.code || '').toLowerCase();
   const message = String(error?.message || error || '').toLowerCase();

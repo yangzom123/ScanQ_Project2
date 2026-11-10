@@ -12,6 +12,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { formatDate, formatTime, randomToken, combineDateTime } from '../../utils';
 import { colors } from '../../theme';
 import { runOnlineWrite } from '../../services/network';
+import { safeBack } from '../../navigation/safeBack';
 
 const REFRESH_INTERVAL = 10000; // QR token changes every 10 s
 const RADII = [50, 100, 200];
@@ -45,12 +46,12 @@ export default function GenerateQrScreen({ navigation }) {
         const opts = snap.docs.map((d) => ({
           id: d.id, name: d.data().name || '', code: d.data().code || '', enrolledCount: (d.data().enrolledStudentIds || []).length,
         }));
-        if (opts.length === 0) { toast('Create a module first, then generate a QR for it', true); navigation.goBack(); return; }
+        if (opts.length === 0) { toast('Create a module first, then generate a QR for it', true); safeBack(navigation, 'TutorTabs'); return; }
         setOptions(opts);
         setLoading(false);
       } catch (e) {
         toast(`Couldn't load your modules: ${e.message}`, true);
-        navigation.goBack();
+        safeBack(navigation, 'TutorTabs');
       }
     })();
     return () => clearInterval(timer.current);
@@ -162,14 +163,14 @@ export default function GenerateQrScreen({ navigation }) {
         toast(`Attendance stopped. Scheduled end time: ${formatTime(new Date(endAtRef.current))}`);
       } catch (e) { toast(`Failed to stop session: ${e.message}`); }
     }
-    navigation.goBack();
+    safeBack(navigation, 'TutorTabs');
   };
 
   return (
     <Screen>
       <ScrollView contentContainerStyle={{ padding: 24 }} keyboardShouldPersistTaps="handled">
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 28 }}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 40, height: 40, justifyContent: 'center' }}>
+          <TouchableOpacity onPress={() => safeBack(navigation, 'TutorTabs')} style={{ width: 40, height: 40, justifyContent: 'center' }}>
             <Ionicons name="close" size={28} color={colors.textPrimary} />
           </TouchableOpacity>
           <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: 'bold', marginLeft: 8 }}>

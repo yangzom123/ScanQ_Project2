@@ -8,12 +8,15 @@ import { useToast } from '../context/ToastContext';
 import { authErrorMessage } from '../utils';
 import { colors } from '../theme';
 import { useTheme } from '../context/ThemeContext';
+import { withTimeout } from '../services/network';
+import { useAuth } from '../context/AuthContext';
 
 export default function LoginScreen({ navigation, route }) {
   useTheme();
   const role = route.params.role; // 'student' | 'tutor'
   const isStudent = role === 'student';
   const toast = useToast();
+  const { acceptLoginProfile } = useAuth();
   const [idNumber, setIdNumber] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -25,9 +28,9 @@ export default function LoginScreen({ navigation, route }) {
     setLoading(true);
     try {
       // 1) find the account's email via its Student/Tutor ID
-      const snap = await getDocs(query(
+      const snap = await withTimeout(getDocs(query(
         collection(db, 'users'), where('idNumber', '==', id), where('role', '==', role), limit(1)
-      ));
+      )), 12000, 'LOGIN_LOOKUP_TIMEOUT');
       if (snap.empty) {
         setLoading(false);
         toast(`No account found with this ${isStudent ? 'Student' : 'Tutor'} ID.`);
@@ -41,7 +44,8 @@ export default function LoginScreen({ navigation, route }) {
       }
       // 2) sign in with Firebase Auth. AuthContext then routes to the right dashboard.
       try {
-        await signInWithEmailAndPassword(auth, email, pw);
+        const credential = await signInWithEmailAndPassword(auth, email, pw);
+        acceptLoginProfile({ ...snap.docs[0].data(), uid: credential.user.uid, role });
         toast('Login successful');
       } catch (e) {
         setLoading(false);
@@ -49,7 +53,9 @@ export default function LoginScreen({ navigation, route }) {
       }
     } catch (e) {
       setLoading(false);
-      toast(`Couldn't reach the database (${e.message}). Check your Firestore rules/connection.`, true);
+      toast(e.message === 'LOGIN_LOOKUP_TIMEOUT'
+        ? 'Finding your account took too long. Check your connection and Firestore rules, then try again.'
+        : `Couldn't reach the database (${e.message}). Check your Firestore rules/connection.`, true);
     }
   };
 

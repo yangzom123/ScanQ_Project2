@@ -27,7 +27,11 @@ export default function TutorModules() {
         moduleId: d.id, name: d.data().name || '', code: d.data().code || '',
         tutorId: user.uid, hasKey: !!d.data().enrollmentKeyHash,
       })));
-    } catch (e) { toast(`Error: ${e.message}`); }
+    } catch (e) {
+      toast(e.code === 'permission-denied'
+        ? "Firestore denied access to tutor modules. Publish this app's firestore.rules to its Firebase project."
+        : `Error: ${e.message}`, true);
+    }
   }, [user, toast]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));

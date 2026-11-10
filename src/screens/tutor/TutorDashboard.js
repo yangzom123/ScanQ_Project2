@@ -45,14 +45,22 @@ export default function TutorDashboard({ navigation }) {
       mods.docs.forEach((d) => (d.data().enrolledStudentIds || []).forEach((s) => studentIds.add(s)));
       const sessions = await fetchTutorSessions(uid);
       let expected = 0, present = 0;
-      sessions.forEach((s) => { expected += s.totalStudents; present += s.presentCount; });
+      sessions.forEach((s) => {
+        const enrolled = Math.max(0, Number(s.totalStudents) || 0);
+        const checkedIn = Math.max(0, Number(s.presentCount) || 0);
+        expected += enrolled;
+        // A stale or duplicated session counter must not make attendance exceed 100%.
+        present += Math.min(checkedIn, enrolled);
+      });
       setStats({
         modules: mods.size, students: studentIds.size, sessions: sessions.length,
         rate: expected > 0 ? Math.floor((present / expected) * 100) : 0,
       });
       setRecent(sessions.slice(0, 5));
     } catch (e) {
-      toast(`Couldn't load data: ${e.message}`);
+      toast(e.code === 'permission-denied'
+        ? "Firestore denied access to tutor data. Publish this app's firestore.rules to its Firebase project."
+        : `Couldn't load data: ${e.message}`, true);
     }
   }, [uid, toast]);
 

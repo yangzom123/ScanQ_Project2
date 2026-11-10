@@ -12,6 +12,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { distanceMeters } from '../../utils';
 import { colors } from '../../theme';
 import { runOnlineWrite } from '../../services/network';
+import { safeBack } from '../../navigation/safeBack';
 
 // Returns a message when the session can't take attendance right now, otherwise null
 function windowError(d) {
@@ -52,9 +53,9 @@ export default function ScanScreen({ navigation }) {
 
   const markAttendance = async (payload) => {
     const uid = user?.uid;
-    if (!uid) { toast('Session expired, please log in again'); navigation.goBack(); return; }
+    if (!uid) { toast('Session expired, please log in again'); safeBack(navigation, 'StudentTabs'); return; }
     const parts = payload.split('|');
-    if (parts.length < 2) { toast('Invalid or outdated QR code', true); navigation.goBack(); return; }
+    if (parts.length < 2) { toast('Invalid or outdated QR code', true); safeBack(navigation, 'StudentTabs'); return; }
     const [sessionId, scannedToken] = parts;
 
     const sessionRef = doc(db, 'sessions', sessionId);
@@ -107,7 +108,7 @@ export default function ScanScreen({ navigation }) {
         Alert.alert('Turn on location services', 'Enable location services, then scan the QR code again.');
       } else toast(msg, true);
     }
-    navigation.goBack();
+    safeBack(navigation, 'StudentTabs');
   };
 
   const onScanned = ({ data }) => {
@@ -127,7 +128,7 @@ export default function ScanScreen({ navigation }) {
           title={permission.canAskAgain ? 'Allow Camera' : 'Open Settings'}
           onPress={permission.canAskAgain ? requestPermission : () => Linking.openSettings()}
         />
-        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 20 }}>
+        <TouchableOpacity onPress={() => safeBack(navigation, 'StudentTabs')} style={{ marginTop: 20 }}>
           <Text style={{ color: colors.accentBlue, textAlign: 'center', fontSize: 15 }}>Cancel</Text>
         </TouchableOpacity>
       </Screen>
@@ -139,7 +140,7 @@ export default function ScanScreen({ navigation }) {
       <CameraView style={StyleSheet.absoluteFill} facing="back" barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
         onBarcodeScanned={busy ? undefined : onScanned} />
       <View style={s.frame} pointerEvents="none" />
-      <TouchableOpacity style={s.close} onPress={() => navigation.goBack()}>
+      <TouchableOpacity style={s.close} onPress={() => safeBack(navigation, 'StudentTabs')}>
         <Ionicons name="close" size={30} color="#fff" />
       </TouchableOpacity>
       <Text style={s.prompt}>{busy ? 'Checking schedule and location...' : "Scan your tutor's attendance QR code"}</Text>

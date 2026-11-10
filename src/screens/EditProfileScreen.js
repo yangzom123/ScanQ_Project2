@@ -11,6 +11,7 @@ import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext';
 import { colors } from '../theme';
 import { runOnlineWrite } from '../services/network';
+import { safeBack } from '../navigation/safeBack';
 
 export default function EditProfileScreen({ navigation }) {
   useTheme();
@@ -76,7 +77,7 @@ export default function EditProfileScreen({ navigation }) {
       }));
       await refreshProfile();
       toast('Profile updated');
-      navigation.goBack();
+      safeBack(navigation, profile?.role === 'tutor' ? 'TutorTabs' : 'StudentTabs');
     } catch (e) {
       const bad = e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password';
       toast(bad ? 'Current password is incorrect' : `Update failed: ${e.message}`, true);
@@ -89,7 +90,7 @@ export default function EditProfileScreen({ navigation }) {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={{ padding: 24 }} keyboardShouldPersistTaps="handled">
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24 }}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 40, height: 40, justifyContent: 'center' }}>
+            <TouchableOpacity onPress={() => safeBack(navigation, profile?.role === 'tutor' ? 'TutorTabs' : 'StudentTabs')} style={{ width: 40, height: 40, justifyContent: 'center' }}>
               <Ionicons name="close" size={28} color={colors.textPrimary} />
             </TouchableOpacity>
             <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: 'bold', marginLeft: 8 }}>Edit Profile</Text>

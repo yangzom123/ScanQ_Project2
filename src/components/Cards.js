@@ -33,7 +33,10 @@ export function StudentModuleCard({ module, onUnenroll }) {
 /* item_session_tutor.xml */
 export function SessionCard({ session }) {
   useTheme();
-  const pct = session.totalStudents > 0 ? Math.floor((session.presentCount * 100) / session.totalStudents) : 0;
+  const total = Math.max(0, Number(session.totalStudents) || 0);
+  const present = Math.max(0, Number(session.presentCount) || 0);
+  const displayedPresent = Math.min(present, total);
+  const pct = total > 0 ? Math.floor((displayedPresent * 100) / total) : 0;
   return (
     <LightCard style={{ marginBottom: 12, flexDirection: 'row', alignItems: 'center' }}>
       <View style={{ flex: 1 }}>
@@ -42,7 +45,7 @@ export function SessionCard({ session }) {
       </View>
       <View style={{ alignItems: 'flex-end' }}>
         <Text style={{ color: colors.accentBlueDark, fontSize: 20, fontWeight: 'bold' }}>{pct}%</Text>
-        <Text style={{ color: colors.textSecondary, fontSize: 12 }}>Present: {session.presentCount}/{session.totalStudents}</Text>
+        <Text style={{ color: colors.textSecondary, fontSize: 12 }}>Present: {displayedPresent}/{total}</Text>
       </View>
     </LightCard>
   );

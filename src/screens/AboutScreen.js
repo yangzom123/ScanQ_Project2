@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Screen, Card } from '../components/ui';
 import { colors } from '../theme';
 import { useTheme } from '../context/ThemeContext';
+import { safeBack } from '../navigation/safeBack';
 
 const FEATURES = [
   ['Dynamic QR Code', 'Quick attendance tracking using QR scanning'],
@@ -16,7 +17,7 @@ export default function AboutScreen({ navigation }) {
   return (
     <Screen>
       <ScrollView contentContainerStyle={{ padding: 24 }}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 40, height: 40, marginTop: 8, justifyContent: 'center' }}>
+        <TouchableOpacity onPress={() => safeBack(navigation, 'Welcome')} style={{ width: 40, height: 40, marginTop: 8, justifyContent: 'center' }}>
           <Ionicons name="close" size={28} color={colors.accentBlue} />
         </TouchableOpacity>
         <View style={{ alignItems: 'center', marginTop: 16 }}>

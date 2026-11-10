@@ -68,7 +68,9 @@ export default function StudentDashboard({ navigation }) {
         );
       }
     } catch (e) {
-      toast(`Couldn't load modules: ${e.message}`);
+      toast(e.code === 'permission-denied'
+        ? "Firestore denied access to student modules. Publish this app's firestore.rules to its Firebase project."
+        : `Couldn't load modules: ${e.message}`, true);
     }
   }, [uid, navigation, toast]);
 

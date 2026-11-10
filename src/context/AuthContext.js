@@ -3,7 +3,7 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth, db } from '../firebase';
-import { isOfflineError } from '../services/network';
+import { isOfflineError, withTimeout } from '../services/network';
 
 const AuthCtx = createContext(null);
 const profileCacheKey = (uid) => `scanq_profile_${uid}`;
@@ -21,15 +21,16 @@ export function AuthProvider({ children }) {
   const loadProfile = useCallback(async (u) => {
     if (!u) { setProfile(null); return; }
     try {
-      const snap = await getDoc(doc(db, 'users', u.uid));
+      const snap = await withTimeout(getDoc(doc(db, 'users', u.uid)), 12000, 'PROFILE_LOAD_TIMEOUT');
       if (snap.exists()) {
         const nextProfile = { uid: u.uid, ...snap.data() };
         setProfile(nextProfile);
         AsyncStorage.setItem(profileCacheKey(u.uid), JSON.stringify(nextProfile)).catch(() => {});
       } else if (!registering.current) {
-        await signOut(auth); // same as WelcomeActivity: no profile document -> sign out
-        setProfile(null);
-        AsyncStorage.removeItem(profileCacheKey(u.uid)).catch(() => {});
+        // Some existing accounts were provisioned outside the app. Keep the session and
+        // restore the profile that LoginScreen found by ID instead of bouncing to Welcome.
+        const cached = await AsyncStorage.getItem(profileCacheKey(u.uid));
+        if (cached) setProfile(JSON.parse(cached));
       }
     } catch (e) {
       if (isOfflineError(e)) {
@@ -37,6 +38,12 @@ export function AuthProvider({ children }) {
           const cached = await AsyncStorage.getItem(profileCacheKey(u.uid));
           if (cached) setProfile(JSON.parse(cached));
         } catch (_) { /* keep the authenticated user even if the local cache is unreadable */ }
+      } else if (e.code === 'permission-denied' || e.message === 'PROFILE_LOAD_TIMEOUT') {
+        // A Firestore rules mismatch or stalled read must not silently turn login into logout.
+        try {
+          const cached = await AsyncStorage.getItem(profileCacheKey(u.uid));
+          if (cached) setProfile(JSON.parse(cached));
+        } catch (_) { /* retain any profile already supplied by the login screen */ }
       } else if (!registering.current) {
         await signOut(auth);
         setProfile(null);
@@ -54,9 +61,18 @@ export function AuthProvider({ children }) {
   }, [loadProfile]);
 
   const beginRegistration = () => { registering.current = true; };
-  const finishRegistration = async () => {
+  const acceptLoginProfile = (nextProfile) => {
+    setProfile(nextProfile);
+    AsyncStorage.setItem(profileCacheKey(nextProfile.uid), JSON.stringify(nextProfile)).catch(() => {});
+  };
+  const finishRegistration = (savedProfile) => {
     registering.current = false;
-    await loadProfile(auth.currentUser);
+    if (savedProfile) {
+      setProfile(savedProfile);
+      AsyncStorage.setItem(profileCacheKey(savedProfile.uid), JSON.stringify(savedProfile)).catch(() => {});
+      return;
+    }
+    loadProfile(auth.currentUser);
   };
   const refreshProfile = () => loadProfile(auth.currentUser);
   const logout = async () => {
@@ -67,7 +83,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthCtx.Provider value={{ user, profile, loading, beginRegistration, finishRegistration, refreshProfile, logout }}>
+    <AuthCtx.Provider value={{ user, profile, loading, beginRegistration, finishRegistration, acceptLoginProfile, refreshProfile, logout }}>
       {children}
     </AuthCtx.Provider>
   );

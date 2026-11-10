@@ -9,7 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { isValidEmail } from '../utils';
 import { colors } from '../theme';
 import { useTheme } from '../context/ThemeContext';
-import { runOnlineWrite } from '../services/network';
+import { runOnlineWrite, withTimeout } from '../services/network';
 
 export default function RegisterScreen({ navigation, route }) {
   useTheme();
@@ -35,7 +35,11 @@ export default function RegisterScreen({ navigation, route }) {
     setLoading(true);
     try {
       // Does the Student/Tutor ID already exist?
-      const existing = await getDocs(query(collection(db, 'users'), where('idNumber', '==', idNumber), limit(1)));
+      const existing = await withTimeout(
+        getDocs(query(collection(db, 'users'), where('idNumber', '==', idNumber), limit(1))),
+        12000,
+        'ID_CHECK_TIMEOUT'
+      );
       if (!existing.empty) {
         toast('An account with this ID already exists. Please log in instead.', true);
         goLogin();
@@ -46,7 +50,7 @@ export default function RegisterScreen({ navigation, route }) {
       try {
         cred = await createUserWithEmailAndPassword(auth, email, password);
       } catch (e) {
-        await finishRegistration();
+        finishRegistration();
         setLoading(false);
         if (e.code === 'auth/email-already-in-use') {
           toast('Email is already registered. Please login.', true);
@@ -58,18 +62,22 @@ export default function RegisterScreen({ navigation, route }) {
       }
       try {
         const profileRef = doc(db, 'users', cred.user.uid);
+        const savedProfile = { uid: cred.user.uid, fullName, idNumber, email, role, profilePhotoUrl: '', createdDate: Date.now() };
         await runOnlineWrite(() => runTransaction(db, async (txn) => txn.set(profileRef, {
-          uid: cred.user.uid, fullName, idNumber, email, role, profilePhotoUrl: '', createdDate: Date.now(),
+          ...savedProfile,
         })));
-        await finishRegistration(); // -> navigator switches to the dashboard
+        finishRegistration(savedProfile);
       } catch (e) {
-        await finishRegistration();
+        finishRegistration();
         setLoading(false);
-        toast(`Unable to save ${role} profile: ${e.message}`, true);
+        toast(`Unable to save ${role} profile: ${e.message}. Check the Firestore rules and connection, then try again.`, true);
       }
     } catch (e) {
       setLoading(false);
-      toast(`Error checking ID: ${e.message}`, true);
+      const message = e.message === 'ID_CHECK_TIMEOUT'
+        ? 'Checking this ID took too long. Check your connection and Firestore rules, then try again.'
+        : `Error checking ID: ${e.message}`;
+      toast(message, true);
     }
   };
 
